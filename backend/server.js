@@ -195,13 +195,13 @@ app.post('/addtemp', async (req, res) => {
   }
 });
 
-// Catch all handler: serve React index.html for any unmatched routes (must be after API routes)
+// Serve static files from the root directory (must be before catch-all)
+app.use(express.static(path.join(__dirname, '../')));
+
+// Catch all handler: serve React index.html for any unmatched routes (must be last)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../index.html'));
 });
-
-// Serve static files from the root directory (must be absolutely last)
-app.use(express.static(path.join(__dirname, '../')));
 
 app.listen(PORT, () => {
   console.log(`S Verify server running on port ${PORT}`);
