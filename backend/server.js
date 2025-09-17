@@ -76,8 +76,23 @@ app.get('/diagnostic', (req, res) => {
     nodeVersion: process.version,
     workingDirectory: process.cwd(),
     port: process.env.PORT || 3000,
-    endpoints: ['/verify', '/addtemp', '/diagnostic', '/api/ip']
+    endpoints: ['/verify', '/addtemp', '/diagnostic', '/api/ip', '/api/data']
   });
+});
+
+// View data endpoint (for debugging/admin purposes)
+app.get('/api/data', async (req, res) => {
+  try {
+    const data = await readData();
+    res.json({
+      totalEntries: data.length,
+      data: data,
+      lastUpdated: data.length > 0 ? new Date(data[data.length - 1].timestamp).toISOString() : null
+    });
+  } catch (error) {
+    console.error('Error reading data for /api/data:', error);
+    res.status(500).json({ error: 'Failed to read data' });
+  }
 });
 
 // Server-side IP detection endpoint
@@ -180,13 +195,13 @@ app.post('/addtemp', async (req, res) => {
   }
 });
 
-// Serve static files from the root directory (must be last)
-app.use(express.static(path.join(__dirname, '../')));
-
-// Catch all handler: serve React index.html for any unmatched routes
+// Catch all handler: serve React index.html for any unmatched routes (must be after API routes)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../index.html'));
 });
+
+// Serve static files from the root directory (must be absolutely last)
+app.use(express.static(path.join(__dirname, '../')));
 
 app.listen(PORT, () => {
   console.log(`S Verify server running on port ${PORT}`);

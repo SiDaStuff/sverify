@@ -66,6 +66,25 @@ Returns the client's IP address detected server-side (backup method).
 }
 ```
 
+### GET /api/data
+Returns the current state of the verification data (for debugging/admin purposes).
+
+**URL**: `https://sverify.onrender.com/api/data`
+
+**Response:**
+```json
+{
+  "totalEntries": 1,
+  "data": [
+    {
+      "ip": "73.134.208.63",
+      "timestamp": "2025-09-17T23:10:00.000Z"
+    }
+  ],
+  "lastUpdated": "2025-09-17T23:10:00.000Z"
+}
+```
+
 ### POST /addtemp
 Adds an IP address to the verified list after performing browser checks.
 
@@ -172,6 +191,9 @@ curl https://sverify.onrender.com/diagnostic
 
 # Test IP detection
 curl https://sverify.onrender.com/api/ip
+
+# View current verification data
+curl https://sverify.onrender.com/api/data
 
 # Test /verify endpoint
 curl -X POST https://sverify.onrender.com/verify \
