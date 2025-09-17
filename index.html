@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S Verify</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>S Verify</h1>
+        <div id="loading-container" class="hidden">
+            <div class="loading-circle"></div>
+            <p class="loading-text">Verifying...</p>
+        </div>
+        <div id="content">
+            <p>Welcome to S Verify</p>
+            <p>This application verifies IP addresses and manages temporary access with browser security checks.</p>
+
+            <div class="docs-section">
+                <h2>📚 API Documentation</h2>
+
+                <div class="endpoint">
+                    <h3>POST /verify</h3>
+                    <p>Verifies if an IP address is valid (exists and within 15 minutes).</p>
+                    <div class="code-block">
+                        <strong>URL:</strong> https://sverify.onrender.com/verify<br>
+                        <strong>Body:</strong> <code>{"ip": "192.168.1.1"}</code><br>
+                        <strong>Response:</strong> <code>{"valid": true/false}</code>
+                    </div>
+                </div>
+
+                <div class="endpoint">
+                    <h3>GET /addtemp</h3>
+                    <p>Serves the verification page with loading animation and browser checks.</p>
+                    <div class="code-block">
+                        <strong>URL:</strong> https://sverify.onrender.com/addtemp
+                    </div>
+                </div>
+
+                <div class="endpoint">
+                    <h3>POST /addtemp</h3>
+                    <p>Adds an IP address to the verified list after performing browser checks.</p>
+                    <div class="code-block">
+                        <strong>Body:</strong> <code>{"ip": "192.168.1.1", "browserChecks": {...}}</code>
+                    </div>
+                </div>
+            </div>
+
+            <div class="test-section">
+                <h2>🧪 Test the API</h2>
+                <div class="button-group">
+                    <button id="test-verify-btn" class="btn btn-primary">Test /verify Endpoint</button>
+                    <button id="go-to-addtemp-btn" class="btn btn-secondary">Go to /addtemp</button>
+                </div>
+
+                <div id="test-results" class="test-results hidden">
+                    <h3>Test Results</h3>
+                    <div id="results-content"></div>
+                </div>
+            </div>
+
+            <div class="features-section">
+                <h2>🔒 Security Features</h2>
+                <ul>
+                    <li>Browser fingerprinting and anomaly detection</li>
+                    <li>IP-based temporary access with 15-minute time limits</li>
+                    <li>Protection against embedded/iframe loading</li>
+                    <li>Bot and automated access prevention</li>
+                    <li>Ad blocker and incognito mode detection</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
