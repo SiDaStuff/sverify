@@ -11,7 +11,6 @@ const DATA_FILE = path.join(__dirname, 'data.json');
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, '../'))); // Serve frontend files
 
 // Helper function to read data from JSON file
 async function readData() {
@@ -64,9 +63,6 @@ app.post('/verify', async (req, res) => {
   }
 });
 
-// Serve static files from the root directory
-app.use(express.static(path.join(__dirname, '../')));
-
 // GET /addtemp endpoint (serves the verification page)
 app.get('/addtemp', (req, res) => {
   res.sendFile(path.join(__dirname, '../index.html'));
@@ -118,6 +114,14 @@ app.post('/addtemp', async (req, res) => {
     console.error('Error in /addtemp endpoint:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+// Serve static files from the root directory (must be last)
+app.use(express.static(path.join(__dirname, '../')));
+
+// Catch all handler: serve React index.html for any unmatched routes
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../index.html'));
 });
 
 app.listen(PORT, () => {
