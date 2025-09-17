@@ -108,6 +108,37 @@ The application performs several security checks:
 
 4. **Open your browser** and navigate to `http://localhost:3000`
 
+## Render Deployment
+
+### Important: Render Configuration
+
+**Root Directory**: Set to `backend/` (not the project root)
+
+**Build Command**: `npm install`
+
+**Start Command**: `npm start`
+
+### Troubleshooting
+
+If you get "Not Found" errors:
+
+1. **Check Build Logs**: Make sure dependencies are installed
+2. **Verify Working Directory**: Ensure it's set to `backend/`
+3. **Check Server Logs**: Look for any startup errors
+4. **Test Endpoints**: Use the test script below
+
+### Testing Deployed Endpoints
+
+```bash
+# Test /verify endpoint
+curl -X POST https://sverify.onrender.com/verify \
+  -H "Content-Type: application/json" \
+  -d '{"ip": "192.168.1.1"}'
+
+# Test /addtemp endpoint
+curl https://sverify.onrender.com/addtemp
+```
+
 ## Usage
 
 1. **Verification Process**: Visit `https://sverify.onrender.com/addtemp` to trigger the verification process

@@ -68,6 +68,18 @@ app.get('/addtemp', (req, res) => {
   res.sendFile(path.join(__dirname, '../index.html'));
 });
 
+// Diagnostic endpoint to check server status
+app.get('/diagnostic', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    nodeVersion: process.version,
+    workingDirectory: process.cwd(),
+    port: process.env.PORT || 3000,
+    endpoints: ['/verify', '/addtemp', '/diagnostic']
+  });
+});
+
 // POST /addtemp endpoint (handles the verification and data storage)
 app.post('/addtemp', async (req, res) => {
   try {
