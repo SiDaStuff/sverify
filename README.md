@@ -9,6 +9,8 @@ A web application that verifies IP addresses and manages temporary access with b
 - **IP Verification**: Check if an IP address is in the verified list and within a 15-minute window
 - **Browser Security**: Performs multiple checks to detect suspicious or bot-like behavior
 - **Temporary Access**: Manages IP addresses with timestamps for temporary verification
+- **Robust IP Detection**: Uses multiple free IP services with automatic fallbacks
+- **Server-side Backup**: Server-side IP detection as final fallback
 
 ## Project Structure
 
@@ -50,6 +52,20 @@ Serves the verification page with loading animation.
 
 **URL**: `https://sverify.onrender.com/addtemp`
 
+### GET /api/ip
+Returns the client's IP address detected server-side (backup method).
+
+**URL**: `https://sverify.onrender.com/api/ip`
+
+**Response:**
+```json
+{
+  "ip": "192.168.1.1",
+  "source": "server",
+  "method": "direct|forwarded|real-ip|cloudflare"
+}
+```
+
 ### POST /addtemp
 Adds an IP address to the verified list after performing browser checks.
 
@@ -68,6 +84,27 @@ Adds an IP address to the verified list after performing browser checks.
   }
 }
 ```
+
+## IP Detection System
+
+The application uses a robust multi-layered approach to detect client IP addresses:
+
+### Primary Methods (Free External Services)
+1. **api.ipify.org** - Primary IPv4 detection service
+2. **api.ip.sb/jsonip** - Secondary backup service
+3. **api.myip.com** - Tertiary backup service
+4. **ipapi.co/json/** - Quaternary backup service
+
+### Server-side Backup
+- **Server Detection**: Uses request headers and connection info
+- **Proxy Support**: Handles `X-Forwarded-For`, `X-Real-IP`, `CF-Connecting-IP`
+- **IPv6 Support**: Converts IPv6 localhost to IPv4
+
+### Features
+- **Automatic Failover**: Tries multiple services in sequence
+- **Timeout Protection**: 5-second timeout per service
+- **IP Validation**: Ensures valid IPv4 format
+- **Error Logging**: Detailed console logging for debugging
 
 ## Browser Checks
 
@@ -130,6 +167,12 @@ If you get "Not Found" errors:
 ### Testing Deployed Endpoints
 
 ```bash
+# Test server status
+curl https://sverify.onrender.com/diagnostic
+
+# Test IP detection
+curl https://sverify.onrender.com/api/ip
+
 # Test /verify endpoint
 curl -X POST https://sverify.onrender.com/verify \
   -H "Content-Type: application/json" \

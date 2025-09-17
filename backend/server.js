@@ -76,8 +76,60 @@ app.get('/diagnostic', (req, res) => {
     nodeVersion: process.version,
     workingDirectory: process.cwd(),
     port: process.env.PORT || 3000,
-    endpoints: ['/verify', '/addtemp', '/diagnostic']
+    endpoints: ['/verify', '/addtemp', '/diagnostic', '/api/ip']
   });
+});
+
+// Server-side IP detection endpoint
+app.get('/api/ip', (req, res) => {
+  try {
+    // Get client IP from various possible headers (for proxy/load balancer support)
+    let clientIP = req.ip ||
+                   req.connection.remoteAddress ||
+                   req.socket.remoteAddress ||
+                   req.connection.socket?.remoteAddress;
+
+    // Handle IPv6 localhost
+    if (clientIP === '::1' || clientIP === '::ffff:127.0.0.1') {
+      clientIP = '127.0.0.1';
+    }
+
+    // Remove IPv6 prefix if present
+    if (clientIP && clientIP.startsWith('::ffff:')) {
+      clientIP = clientIP.substring(7);
+    }
+
+    // Try headers from proxy/load balancers
+    const forwardedFor = req.headers['x-forwarded-for'];
+    const realIP = req.headers['x-real-ip'];
+    const cfConnectingIP = req.headers['cf-connecting-ip'];
+
+    // Use the most reliable IP (prioritize Cloudflare, then forwarded headers)
+    const detectedIP = cfConnectingIP ||
+                      (forwardedFor ? forwardedFor.split(',')[0].trim() : null) ||
+                      realIP ||
+                      clientIP;
+
+    // Validate the IP format
+    const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
+    if (detectedIP && ipv4Regex.test(detectedIP)) {
+      res.json({
+        ip: detectedIP,
+        source: 'server',
+        method: cfConnectingIP ? 'cloudflare' :
+                forwardedFor ? 'forwarded' :
+                realIP ? 'real-ip' : 'direct'
+      });
+    } else {
+      res.status(400).json({
+        error: 'Unable to determine valid IPv4 address',
+        detectedIP: detectedIP
+      });
+    }
+  } catch (error) {
+    console.error('Error in /api/ip endpoint:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // POST /addtemp endpoint (handles the verification and data storage)
