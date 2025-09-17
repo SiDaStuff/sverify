@@ -1,11 +1,23 @@
-// Browser verification checks
+// Enhanced browser verification checks
 function performBrowserChecks() {
     const checks = {
         isEmbedded: false,
         isBot: false,
         hasAdBlock: false,
         isIncognito: false,
-        isCleanLoad: true
+        isCleanLoad: true,
+        // Additional security checks
+        hasWebdriver: false,
+        hasSelenium: false,
+        hasHeadless: false,
+        hasAutomation: false,
+        isTrustedDevice: true,
+        hasValidViewport: true,
+        hasValidTimezone: true,
+        hasValidLanguage: true,
+        hasValidPlugins: true,
+        hasValidCanvas: true,
+        hasValidWebGL: true
     };
 
     // Check if page is embedded (iframe)
@@ -15,16 +27,41 @@ function performBrowserChecks() {
         checks.isEmbedded = true;
     }
 
-    // Check for bot-like behavior
+    // Enhanced bot detection
     const userAgent = navigator.userAgent.toLowerCase();
     const botPatterns = [
         'bot', 'crawl', 'spider', 'scraper', 'headless', 'selenium',
-        'chrome-headless', 'phantomjs', 'puppeteer'
+        'chrome-headless', 'phantomjs', 'puppeteer', 'nightmare',
+        'electron', 'webdriver', 'selenium', 'chrome-lighthouse'
     ];
 
     checks.isBot = botPatterns.some(pattern => userAgent.includes(pattern));
 
-    // Check for ad blocker (simple test)
+    // Automation detection
+    checks.hasWebdriver = navigator.webdriver === true;
+    checks.hasSelenium = !!window.navigator.webdriver;
+    checks.hasHeadless = userAgent.includes('headless') ||
+                        userAgent.includes('electron') ||
+                        !window.chrome;
+
+    // Check for automation indicators
+    const automationIndicators = [
+        window.callPhantom,
+        window._phantom,
+        window.__nightmare,
+        window._seleniumRunner,
+        window.__webdriver_script_fn,
+        window.__driver_evaluate,
+        window.__selenium_evaluate,
+        window.__fxdriver_evaluate,
+        window.__driver_unwrapped,
+        window.__selenium_unwrapped,
+        window.__fxdriver_unwrapped
+    ];
+
+    checks.hasAutomation = automationIndicators.some(indicator => !!indicator);
+
+    // Check for ad blocker (enhanced test)
     const testAd = document.createElement('div');
     testAd.innerHTML = '&nbsp;';
     testAd.className = 'adsbox adsbygoogle ad-banner';
@@ -50,10 +87,66 @@ function performBrowserChecks() {
         });
     }
 
+    // Viewport validation
+    checks.hasValidViewport = window.innerWidth > 0 && window.innerHeight > 0 &&
+                             window.innerWidth >= 320 && window.innerHeight >= 240;
+
+    // Timezone validation
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    checks.hasValidTimezone = timezone && timezone.length > 0;
+
+    // Language validation
+    checks.hasValidLanguage = navigator.language && navigator.language.length >= 2;
+
+    // Plugin validation (deprecated but still useful)
+    checks.hasValidPlugins = navigator.plugins && navigator.plugins.length >= 0;
+
+    // Canvas fingerprinting validation
+    try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'rgba(0,0,0,0.1)';
+        ctx.fillRect(0, 0, 10, 10);
+        const canvasData = canvas.toDataURL();
+        checks.hasValidCanvas = canvasData && canvasData.length > 100;
+    } catch (e) {
+        checks.hasValidCanvas = false;
+    }
+
+    // WebGL validation
+    try {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        if (gl) {
+            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+            if (debugInfo) {
+                gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+            }
+            checks.hasValidWebGL = true;
+        } else {
+            checks.hasValidWebGL = false;
+        }
+    } catch (e) {
+        checks.hasValidWebGL = false;
+    }
+
     // Check for clean HTML load (not embedded, not in popup, etc.)
     checks.isCleanLoad = !checks.isEmbedded &&
                         window.opener === null &&
-                        window.history.length > 1;
+                        window.history.length > 1 &&
+                        !checks.isIncognito;
+
+    // Overall trust score
+    checks.isTrustedDevice = !checks.isBot &&
+                            !checks.hasWebdriver &&
+                            !checks.hasSelenium &&
+                            !checks.hasHeadless &&
+                            !checks.hasAutomation &&
+                            checks.hasValidViewport &&
+                            checks.hasValidTimezone &&
+                            checks.hasValidLanguage &&
+                            checks.hasValidCanvas &&
+                            checks.hasValidWebGL;
 
     return checks;
 }
@@ -160,9 +253,141 @@ function showLoading() {
     const loadingContainer = document.getElementById('loading-container');
     const content = document.getElementById('content');
 
-    loadingContainer.classList.remove('hidden');
-    loadingContainer.classList.add('show');
+    loadingContainer.classList.remove('hidden', 'success', 'failed');
+    loadingContainer.classList.add('show', 'loading');
     content.classList.add('hidden');
+}
+
+// Show success state
+function showSuccess(message = 'Verification successful!') {
+    const loadingContainer = document.getElementById('loading-container');
+    const loadingText = document.querySelector('.loading-text');
+    const loadingSubtitle = document.querySelector('.loading-subtitle');
+
+    loadingContainer.classList.remove('loading', 'failed');
+    loadingContainer.classList.add('success');
+    loadingText.textContent = '✓ Success!';
+    loadingSubtitle.textContent = message;
+
+    // Auto navigate back after showing success
+    setTimeout(() => {
+        window.history.back();
+    }, 2000);
+}
+
+// Show failure state
+function showFailure(message = 'Verification failed. Please complete the captcha to continue.') {
+    const loadingContainer = document.getElementById('loading-container');
+    const loadingText = document.querySelector('.loading-text');
+    const loadingSubtitle = document.querySelector('.loading-subtitle');
+
+    loadingContainer.classList.remove('loading', 'success');
+    loadingContainer.classList.add('failed');
+    loadingText.textContent = '✗ Failed';
+    loadingSubtitle.textContent = message;
+
+    // Add captcha instead of simple retry
+    addCaptchaAndRetry();
+}
+
+// Add captcha and retry for failed state
+function addCaptchaAndRetry() {
+    const loadingContainer = document.getElementById('loading-container');
+
+    // Remove existing elements
+    removeRetryButton();
+    removeCaptcha();
+
+    // Create captcha container
+    const captchaContainer = document.createElement('div');
+    captchaContainer.className = 'captcha-container';
+
+    // Generate simple math captcha
+    const num1 = Math.floor(Math.random() * 10) + 1;
+    const num2 = Math.floor(Math.random() * 10) + 1;
+    const answer = num1 + num2;
+
+    captchaContainer.innerHTML = `
+        <div class="captcha-question">
+            <strong>Prove you're human:</strong><br>
+            What is ${num1} + ${num2}?
+        </div>
+        <input type="text" id="captcha-input" placeholder="Enter answer" maxlength="2">
+        <div class="captcha-buttons">
+            <button class="captcha-submit">Verify</button>
+            <button class="captcha-cancel">Cancel</button>
+        </div>
+        <div class="captcha-error hidden">Incorrect answer. Try again.</div>
+    `;
+
+    // Add event listeners
+    const submitBtn = captchaContainer.querySelector('.captcha-submit');
+    const cancelBtn = captchaContainer.querySelector('.captcha-cancel');
+    const input = captchaContainer.querySelector('#captcha-input');
+    const errorDiv = captchaContainer.querySelector('.captcha-error');
+
+    submitBtn.onclick = () => {
+        const userAnswer = parseInt(input.value);
+        if (userAnswer === answer) {
+            errorDiv.classList.add('hidden');
+            removeCaptcha();
+            handleVerification();
+        } else {
+            errorDiv.classList.remove('hidden');
+            input.value = '';
+            input.focus();
+        }
+    };
+
+    cancelBtn.onclick = () => {
+        removeCaptcha();
+        hideLoading();
+    };
+
+    input.onkeypress = (e) => {
+        if (e.key === 'Enter') {
+            submitBtn.click();
+        }
+    };
+
+    loadingContainer.appendChild(captchaContainer);
+    input.focus();
+
+    // Store the captcha answer for validation
+    captchaContainer.dataset.answer = answer;
+}
+
+// Add retry button to failed state
+function addRetryButton() {
+    const loadingContainer = document.getElementById('loading-container');
+    let retryButton = document.querySelector('.retry-button');
+
+    if (!retryButton) {
+        retryButton = document.createElement('button');
+        retryButton.className = 'retry-button';
+        retryButton.textContent = 'Retry Verification';
+        retryButton.onclick = () => {
+            removeRetryButton();
+            handleVerification();
+        };
+        loadingContainer.appendChild(retryButton);
+    }
+}
+
+// Remove retry button
+function removeRetryButton() {
+    const retryButton = document.querySelector('.retry-button');
+    if (retryButton) {
+        retryButton.remove();
+    }
+}
+
+// Remove captcha
+function removeCaptcha() {
+    const captcha = document.querySelector('.captcha-container');
+    if (captcha) {
+        captcha.remove();
+    }
 }
 
 // Hide loading state
@@ -171,8 +396,10 @@ function hideLoading() {
     const content = document.getElementById('content');
 
     loadingContainer.classList.add('hidden');
-    loadingContainer.classList.remove('show');
+    loadingContainer.classList.remove('show', 'loading', 'success', 'failed');
     content.classList.remove('hidden');
+    removeRetryButton();
+    removeCaptcha();
 }
 
 // Handle the verification process
@@ -221,18 +448,14 @@ async function handleVerification() {
         const result = await response.json();
 
         if (result.success) {
-            // Navigate back in browser history
-            setTimeout(() => {
-                window.history.back();
-            }, 1000);
+            showSuccess('IP verification completed successfully!');
         } else {
-            throw new Error(result.error || 'Verification failed');
+            showFailure(result.error || 'Verification failed');
         }
 
     } catch (error) {
         console.error('Verification error:', error);
-        hideLoading();
-        alert('Verification failed: ' + error.message);
+        showFailure('Verification failed: ' + error.message);
     }
 }
 
@@ -275,10 +498,18 @@ function displayTestResults(title, content, isSuccess = true) {
     showTestResults();
 }
 
-// Test the /verify endpoint
+// Test the /verify endpoint with user's actual IP
 async function testVerifyEndpoint() {
     try {
-        const testIP = '192.168.1.100'; // Test with a sample IP
+        // First, get the user's actual IP
+        const userIP = await getClientIP();
+
+        if (!userIP) {
+            displayTestResults('/verify Endpoint Test', 'Failed to detect your IP address', false);
+            return;
+        }
+
+        console.log(`🔍 Testing verification for your IP: ${userIP}`);
 
         const response = await fetch('https://sverify.onrender.com/verify', {
             method: 'POST',
@@ -286,12 +517,12 @@ async function testVerifyEndpoint() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                ip: testIP
+                ip: userIP
             })
         });
 
         const result = await response.json();
-        const resultText = `Testing IP: ${testIP}\nResponse: ${JSON.stringify(result, null, 2)}`;
+        const resultText = `Your IP: ${userIP}\nVerification Status: ${result.valid ? 'VALID ✓' : 'INVALID ✗'}\nResponse: ${JSON.stringify(result, null, 2)}`;
 
         displayTestResults('/verify Endpoint Test', resultText, response.ok);
 

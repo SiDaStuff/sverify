@@ -161,24 +161,99 @@ app.post('/addtemp', async (req, res) => {
       return res.status(400).json({ error: 'Browser checks are required' });
     }
 
-    // Check for suspicious behavior
+    // Enhanced suspicious activity detection
     const suspiciousIndicators = [
       browserChecks.isEmbedded,
       browserChecks.isBot,
+      browserChecks.hasWebdriver,
+      browserChecks.hasSelenium,
+      browserChecks.hasHeadless,
+      browserChecks.hasAutomation,
       browserChecks.hasAdBlock,
       browserChecks.isIncognito,
-      !browserChecks.isCleanLoad
+      !browserChecks.isCleanLoad,
+      !browserChecks.hasValidViewport,
+      !browserChecks.hasValidTimezone,
+      !browserChecks.hasValidLanguage,
+      !browserChecks.hasValidCanvas,
+      !browserChecks.hasValidWebGL,
+      !browserChecks.isTrustedDevice
     ];
 
-    if (suspiciousIndicators.some(indicator => indicator === true)) {
-      return res.status(400).json({ error: 'Suspicious activity detected' });
+    // Check for critical security violations
+    const criticalViolations = [
+      browserChecks.isBot,
+      browserChecks.hasWebdriver,
+      browserChecks.hasSelenium,
+      browserChecks.hasHeadless,
+      browserChecks.hasAutomation
+    ];
+
+    if (criticalViolations.some(violation => violation === true)) {
+      return res.status(403).json({
+        error: 'Automated access detected. Please access this site manually.',
+        reason: 'bot_detection'
+      });
     }
 
-    // Add IP and timestamp to data.json
+    // Check for suspicious but not critical issues
+    const suspiciousCount = suspiciousIndicators.filter(indicator => indicator === true).length;
+    if (suspiciousCount > 2) {
+      return res.status(400).json({
+        error: 'Multiple suspicious indicators detected. Please try again.',
+        reason: 'multiple_suspicious_indicators',
+        indicators: suspiciousCount
+      });
+    }
+
+    // Additional server-side IP validation
+    const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
+    if (!ipv4Regex.test(ip)) {
+      return res.status(400).json({
+        error: 'Invalid IP address format',
+        reason: 'invalid_ip_format'
+      });
+    }
+
+    // Check for rate limiting (simple implementation)
     const data = await readData();
+    const recentEntries = data.filter(entry => {
+      const entryTime = new Date(entry.timestamp);
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      return entryTime > fiveMinutesAgo;
+    });
+
+    if (recentEntries.length > 10) {
+      return res.status(429).json({
+        error: 'Too many verification attempts. Please wait before trying again.',
+        reason: 'rate_limit_exceeded'
+      });
+    }
+
+    // Check if IP was recently verified (within last 30 seconds)
+    const veryRecentEntry = data.find(entry => {
+      const entryTime = new Date(entry.timestamp);
+      const thirtySecondsAgo = new Date(Date.now() - 30 * 1000);
+      return entry.ip === ip && entryTime > thirtySecondsAgo;
+    });
+
+    if (veryRecentEntry) {
+      return res.status(400).json({
+        error: 'IP was recently verified. Please wait before trying again.',
+        reason: 'recent_verification'
+      });
+    }
+
+    // Add IP and timestamp to data.json with additional metadata
     const newEntry = {
       ip: ip,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      userAgent: req.headers['user-agent'] || 'Unknown',
+      browserChecks: {
+        trustScore: browserChecks.isTrustedDevice ? 'high' : 'low',
+        suspiciousIndicators: suspiciousCount,
+        verifiedAt: new Date().toISOString()
+      }
     };
 
     // Remove any existing entries for this IP
@@ -187,11 +262,20 @@ app.post('/addtemp', async (req, res) => {
 
     await writeData(filteredData);
 
-    res.json({ success: true });
+    console.log(`✅ IP ${ip} successfully verified. Trust score: ${browserChecks.isTrustedDevice ? 'high' : 'low'}`);
+
+    res.json({
+      success: true,
+      message: 'IP verification successful',
+      trustScore: browserChecks.isTrustedDevice ? 'high' : 'low'
+    });
 
   } catch (error) {
     console.error('Error in /addtemp endpoint:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({
+      error: 'Internal server error',
+      reason: 'server_error'
+    });
   }
 });
 
