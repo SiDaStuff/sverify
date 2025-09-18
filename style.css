@@ -544,6 +544,71 @@ html {
     transform: translateY(-1px);
 }
 
+/* Failed Action Buttons Styles */
+.failed-action-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+}
+
+.action-button {
+    padding: 0.75rem 1.5rem;
+    border: 2px solid;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 120px;
+}
+
+.go-back-button {
+    background: #e2e8f0;
+    color: #4a5568;
+    border-color: #cbd5e0;
+}
+
+.go-back-button:hover {
+    background: #cbd5e0;
+    border-color: #a0aec0;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(74, 85, 104, 0.15);
+}
+
+.close-tab-button {
+    background: #fed7d7;
+    color: #c53030;
+    border-color: #feb2b2;
+}
+
+.close-tab-button:hover {
+    background: #feb2b2;
+    border-color: #fc8181;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(197, 48, 48, 0.15);
+}
+
+.action-button:active {
+    transform: translateY(0) scale(0.98);
+}
+
+/* Mobile responsiveness for action buttons */
+@media (max-width: 480px) {
+    .failed-action-buttons {
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+    }
+
+    .action-button {
+        min-width: 100%;
+        padding: 1rem 1.5rem;
+        font-size: 1.1rem;
+    }
+}
+
 /* Improved mobile responsiveness */
 @media (max-width: 768px) {
     .container {

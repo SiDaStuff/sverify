@@ -385,9 +385,12 @@ function showFailure(message = 'Verification failed. Please complete the captcha
     loadingText.textContent = '✗ Failed';
     loadingSubtitle.textContent = message;
 
+    // Always add action buttons (Go Back and Close Tab)
+    addFailedActionButtons();
+
     // Check if this is suspicious activity - don't show captcha for suspicious activity
     if (message.includes('Suspicious activity detected')) {
-        // Don't add captcha for suspicious activity
+        // Don't add captcha for suspicious activity, just show action buttons
         return;
     } else {
         // Add captcha for other verification failures
@@ -402,6 +405,7 @@ function addCaptchaAndRetry() {
     // Remove existing elements
     removeRetryButton();
     removeCaptcha();
+    removeFailedActionButtons();
 
     // Create captcha container
     const captchaContainer = document.createElement('div');
@@ -485,6 +489,8 @@ function removeRetryButton() {
     if (retryButton) {
         retryButton.remove();
     }
+    // Also remove any action buttons that might be present
+    removeFailedActionButtons();
 }
 
 // Remove captcha
@@ -492,6 +498,46 @@ function removeCaptcha() {
     const captcha = document.querySelector('.captcha-container');
     if (captcha) {
         captcha.remove();
+    }
+}
+
+// Add action buttons for failed state (Go Back and Close Tab)
+function addFailedActionButtons() {
+    const loadingContainer = document.getElementById('loading-container');
+
+    // Remove existing buttons first
+    removeFailedActionButtons();
+
+    // Create buttons container
+    const buttonsContainer = document.createElement('div');
+    buttonsContainer.className = 'failed-action-buttons';
+
+    // Create Go Back button
+    const goBackButton = document.createElement('button');
+    goBackButton.className = 'action-button go-back-button';
+    goBackButton.textContent = 'Go Back';
+    goBackButton.onclick = () => {
+        window.history.back();
+    };
+
+    // Create Close Tab button
+    const closeTabButton = document.createElement('button');
+    closeTabButton.className = 'action-button close-tab-button';
+    closeTabButton.textContent = 'Close Tab';
+    closeTabButton.onclick = () => {
+        window.close();
+    };
+
+    buttonsContainer.appendChild(goBackButton);
+    buttonsContainer.appendChild(closeTabButton);
+    loadingContainer.appendChild(buttonsContainer);
+}
+
+// Remove failed action buttons
+function removeFailedActionButtons() {
+    const existingButtons = document.querySelector('.failed-action-buttons');
+    if (existingButtons) {
+        existingButtons.remove();
     }
 }
 
@@ -505,6 +551,7 @@ function hideLoading() {
     content.classList.remove('hidden');
     removeRetryButton();
     removeCaptcha();
+    removeFailedActionButtons();
 }
 
 // Handle the verification process
