@@ -32,6 +32,25 @@ async function writeData(data) {
   }
 }
 
+// Helper function to remove IP from data.json (reset verification status)
+async function removeIPFromData(ip) {
+  try {
+    const data = await readData();
+    const filteredData = data.filter(item => item.ip !== ip);
+
+    // Only write if we actually removed something
+    if (filteredData.length !== data.length) {
+      await writeData(filteredData);
+      console.log(`🔄 Reset verification status for IP: ${ip} (removed from data.json)`);
+      return true; // IP was removed
+    }
+    return false; // IP was not found in data
+  } catch (error) {
+    console.error('Error removing IP from data:', error);
+    return false;
+  }
+}
+
 // POST /verify endpoint
 app.post('/verify', async (req, res) => {
   try {
@@ -161,7 +180,7 @@ app.post('/addtemp', async (req, res) => {
       return res.status(400).json({ error: 'Browser checks are required' });
     }
 
-    // Enhanced suspicious activity detection
+    // Enhanced suspicious activity detection (including new checks)
     const suspiciousIndicators = [
       browserChecks.isEmbedded,
       browserChecks.isBot,
@@ -177,7 +196,20 @@ app.post('/addtemp', async (req, res) => {
       !browserChecks.hasValidLanguage,
       !browserChecks.hasValidCanvas,
       !browserChecks.hasValidWebGL,
-      !browserChecks.isTrustedDevice
+      !browserChecks.isTrustedDevice,
+      // New suspicious indicators
+      !browserChecks.hasValidScreenResolution,
+      !browserChecks.hasValidColorDepth,
+      !browserChecks.hasValidTouchSupport,
+      !browserChecks.hasValidHardwareConcurrency,
+      !browserChecks.hasValidDeviceMemory,
+      !browserChecks.hasValidBatteryAPI,
+      !browserChecks.hasValidNetworkInfo,
+      !browserChecks.hasValidGeolocationAPI,
+      !browserChecks.hasValidNotificationAPI,
+      !browserChecks.hasValidVibrationAPI,
+      !browserChecks.hasValidOrientationAPI,
+      !browserChecks.hasValidAmbientLightAPI
     ];
 
     // Check for critical security violations
@@ -190,6 +222,9 @@ app.post('/addtemp', async (req, res) => {
     ];
 
     if (criticalViolations.some(violation => violation === true)) {
+      // Reset IP verification status on critical violations
+      await removeIPFromData(ip);
+
       return res.status(403).json({
         error: 'Automated access detected. Please access this site manually.',
         reason: 'bot_detection'
@@ -199,6 +234,9 @@ app.post('/addtemp', async (req, res) => {
     // Check for suspicious but not critical issues
     const suspiciousCount = suspiciousIndicators.filter(indicator => indicator === true).length;
     if (suspiciousCount > 2) {
+      // Reset IP verification status on multiple suspicious indicators
+      await removeIPFromData(ip);
+
       return res.status(400).json({
         error: 'Multiple suspicious indicators detected. Please try again.',
         reason: 'multiple_suspicious_indicators',
@@ -209,6 +247,9 @@ app.post('/addtemp', async (req, res) => {
     // Additional server-side IP validation
     const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
     if (!ipv4Regex.test(ip)) {
+      // Reset IP verification status on invalid format
+      await removeIPFromData(ip);
+
       return res.status(400).json({
         error: 'Invalid IP address format',
         reason: 'invalid_ip_format'
@@ -224,6 +265,9 @@ app.post('/addtemp', async (req, res) => {
     });
 
     if (recentEntries.length > 10) {
+      // Reset IP verification status on rate limit violation
+      await removeIPFromData(ip);
+
       return res.status(429).json({
         error: 'Too many verification attempts. Please wait before trying again.',
         reason: 'rate_limit_exceeded'
@@ -238,6 +282,9 @@ app.post('/addtemp', async (req, res) => {
     });
 
     if (veryRecentEntry) {
+      // Reset IP verification status on recent verification attempt
+      await removeIPFromData(ip);
+
       return res.status(400).json({
         error: 'IP was recently verified. Please wait before trying again.',
         reason: 'recent_verification'
@@ -272,6 +319,12 @@ app.post('/addtemp', async (req, res) => {
 
   } catch (error) {
     console.error('Error in /addtemp endpoint:', error);
+
+    // Reset IP verification status on any server error
+    if (ip) {
+      await removeIPFromData(ip);
+    }
+
     res.status(500).json({
       error: 'Internal server error',
       reason: 'server_error'

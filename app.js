@@ -17,7 +17,20 @@ function performBrowserChecks() {
         hasValidLanguage: true,
         hasValidPlugins: true,
         hasValidCanvas: true,
-        hasValidWebGL: true
+        hasValidWebGL: true,
+        // New security checks
+        hasValidScreenResolution: true,
+        hasValidColorDepth: true,
+        hasValidTouchSupport: true,
+        hasValidHardwareConcurrency: true,
+        hasValidDeviceMemory: true,
+        hasValidBatteryAPI: true,
+        hasValidNetworkInfo: true,
+        hasValidGeolocationAPI: true,
+        hasValidNotificationAPI: true,
+        hasValidVibrationAPI: true,
+        hasValidOrientationAPI: true,
+        hasValidAmbientLightAPI: true
     };
 
     // Check if page is embedded (iframe)
@@ -77,7 +90,7 @@ function performBrowserChecks() {
         document.body.removeChild(testAd);
     }, 100);
 
-    // Check if in incognito/private mode
+    // Check if in incognito/private mode (improved detection)
     const fs = window.RequestFileSystem || window.webkitRequestFileSystem;
     if (fs) {
         fs(window.TEMPORARY, 100, () => {
@@ -85,6 +98,20 @@ function performBrowserChecks() {
         }, () => {
             checks.isIncognito = true;
         });
+    }
+
+    // Additional incognito detection methods
+    if (window.indexedDB && !window.indexedDB.open) {
+        checks.isIncognito = true;
+    }
+
+    // Check for localStorage/sessionStorage restrictions
+    try {
+        localStorage.setItem('test', 'test');
+        localStorage.removeItem('test');
+        checks.isIncognito = false;
+    } catch (e) {
+        checks.isIncognito = true;
     }
 
     // Viewport validation
@@ -130,13 +157,80 @@ function performBrowserChecks() {
         checks.hasValidWebGL = false;
     }
 
+    // New security checks implementation
+
+    // Screen resolution validation
+    checks.hasValidScreenResolution = screen.width > 0 && screen.height > 0 &&
+                                     screen.width >= 640 && screen.height >= 480;
+
+    // Color depth validation
+    checks.hasValidColorDepth = screen.colorDepth >= 16;
+
+    // Touch support validation
+    checks.hasValidTouchSupport = 'ontouchstart' in window ||
+                                 navigator.maxTouchPoints > 0 ||
+                                 navigator.msMaxTouchPoints > 0;
+
+    // Hardware concurrency validation
+    checks.hasValidHardwareConcurrency = navigator.hardwareConcurrency &&
+                                       navigator.hardwareConcurrency >= 1 &&
+                                       navigator.hardwareConcurrency <= 64;
+
+    // Device memory validation (if available)
+    if (navigator.deviceMemory) {
+        checks.hasValidDeviceMemory = navigator.deviceMemory >= 1 &&
+                                    navigator.deviceMemory <= 32;
+    } else {
+        checks.hasValidDeviceMemory = true; // Not available in all browsers
+    }
+
+    // Battery API validation
+    if ('getBattery' in navigator) {
+        navigator.getBattery().then(battery => {
+            checks.hasValidBatteryAPI = battery !== null;
+        }).catch(() => {
+            checks.hasValidBatteryAPI = false;
+        });
+    } else {
+        checks.hasValidBatteryAPI = true; // API not available
+    }
+
+    // Network information validation
+    if ('connection' in navigator) {
+        checks.hasValidNetworkInfo = navigator.connection !== null &&
+                                   navigator.connection.effectiveType !== undefined;
+    } else if ('mozConnection' in navigator) {
+        checks.hasValidNetworkInfo = navigator.mozConnection !== null;
+    } else if ('webkitConnection' in navigator) {
+        checks.hasValidNetworkInfo = navigator.webkitConnection !== null;
+    } else {
+        checks.hasValidNetworkInfo = true; // API not available
+    }
+
+    // Geolocation API validation
+    checks.hasValidGeolocationAPI = 'geolocation' in navigator;
+
+    // Notification API validation
+    checks.hasValidNotificationAPI = 'Notification' in window &&
+                                   Notification.permission !== undefined;
+
+    // Vibration API validation
+    checks.hasValidVibrationAPI = 'vibrate' in navigator;
+
+    // Device orientation validation
+    checks.hasValidOrientationAPI = 'DeviceOrientationEvent' in window;
+
+    // Ambient light sensor validation
+    checks.hasValidAmbientLightAPI = 'AmbientLightSensor' in window ||
+                                    'ondevicelight' in window;
+
     // Check for clean HTML load (not embedded, not in popup, etc.)
     checks.isCleanLoad = !checks.isEmbedded &&
                         window.opener === null &&
                         window.history.length > 1 &&
                         !checks.isIncognito;
 
-    // Overall trust score
+    // Overall trust score (including new checks)
     checks.isTrustedDevice = !checks.isBot &&
                             !checks.hasWebdriver &&
                             !checks.hasSelenium &&
@@ -146,7 +240,12 @@ function performBrowserChecks() {
                             checks.hasValidTimezone &&
                             checks.hasValidLanguage &&
                             checks.hasValidCanvas &&
-                            checks.hasValidWebGL;
+                            checks.hasValidWebGL &&
+                            checks.hasValidScreenResolution &&
+                            checks.hasValidColorDepth &&
+                            checks.hasValidHardwareConcurrency &&
+                            checks.hasValidGeolocationAPI &&
+                            checks.hasValidNotificationAPI;
 
     return checks;
 }
@@ -286,8 +385,14 @@ function showFailure(message = 'Verification failed. Please complete the captcha
     loadingText.textContent = '✗ Failed';
     loadingSubtitle.textContent = message;
 
-    // Add captcha instead of simple retry
-    addCaptchaAndRetry();
+    // Check if this is suspicious activity - don't show captcha for suspicious activity
+    if (message.includes('Suspicious activity detected')) {
+        // Don't add captcha for suspicious activity
+        return;
+    } else {
+        // Add captcha for other verification failures
+        addCaptchaAndRetry();
+    }
 }
 
 // Add captcha and retry for failed state
@@ -420,17 +525,57 @@ async function handleVerification() {
             throw new Error('Could not determine IP address');
         }
 
-        // Check for suspicious activity
-        const suspiciousIndicators = [
-            browserChecks.isEmbedded,
-            browserChecks.isBot,
-            browserChecks.hasAdBlock,
-            browserChecks.isIncognito,
-            !browserChecks.isCleanLoad
-        ];
+        // Check for suspicious activity with detailed reasons
+        const suspiciousReasons = [];
 
-        if (suspiciousIndicators.some(indicator => indicator === true)) {
-            throw new Error('Suspicious activity detected');
+        if (browserChecks.isEmbedded) {
+            suspiciousReasons.push('Page is embedded in an iframe');
+        }
+        if (browserChecks.isBot) {
+            suspiciousReasons.push('Bot-like user agent detected');
+        }
+        if (browserChecks.hasAdBlock) {
+            suspiciousReasons.push('Ad blocker detected');
+        }
+        if (browserChecks.isIncognito) {
+            suspiciousReasons.push('Incognito/private browsing mode detected');
+        }
+        if (!browserChecks.isCleanLoad) {
+            suspiciousReasons.push('Unclean page load detected');
+        }
+
+        // Add new checks to suspicious indicators
+        if (!browserChecks.hasValidScreenResolution) {
+            suspiciousReasons.push('Invalid screen resolution');
+        }
+        if (!browserChecks.hasValidColorDepth) {
+            suspiciousReasons.push('Invalid color depth');
+        }
+        if (!browserChecks.hasValidHardwareConcurrency) {
+            suspiciousReasons.push('Invalid hardware concurrency');
+        }
+        if (!browserChecks.hasValidDeviceMemory) {
+            suspiciousReasons.push('Invalid device memory configuration');
+        }
+        if (!browserChecks.hasValidViewport) {
+            suspiciousReasons.push('Invalid viewport dimensions');
+        }
+        if (!browserChecks.hasValidTimezone) {
+            suspiciousReasons.push('Invalid timezone configuration');
+        }
+        if (!browserChecks.hasValidLanguage) {
+            suspiciousReasons.push('Invalid language settings');
+        }
+        if (!browserChecks.hasValidCanvas) {
+            suspiciousReasons.push('Canvas fingerprinting failed');
+        }
+        if (!browserChecks.hasValidWebGL) {
+            suspiciousReasons.push('WebGL validation failed');
+        }
+
+        if (suspiciousReasons.length > 0) {
+            const errorMessage = 'Suspicious activity detected:\n' + suspiciousReasons.map(reason => '• ' + reason).join('\n');
+            throw new Error(errorMessage);
         }
 
         // Send verification request to server
@@ -455,7 +600,13 @@ async function handleVerification() {
 
     } catch (error) {
         console.error('Verification error:', error);
-        showFailure('Verification failed: ' + error.message);
+
+        // If this is suspicious activity detected, show the specific reasons
+        if (error.message.includes('Suspicious activity detected')) {
+            showFailure(error.message);
+        } else {
+            showFailure('Verification failed: ' + error.message);
+        }
     }
 }
 
